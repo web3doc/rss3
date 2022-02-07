@@ -6,8 +6,8 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula')
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'RSS 中文文档',
-  tagline: 'RSS 中文文档',
+  title: 'RSS WIKI 中文文档',
+  tagline: 'RSS WIKI 中文文档',
   url: 'https://rss3.web3doc.top',
   baseUrl: '/',
   onBrokenLinks: 'throw',
@@ -24,7 +24,7 @@ const config = {
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
-          editUrl: 'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+          editUrl: 'https://github.com/web3doc/rss3/edit/main/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),

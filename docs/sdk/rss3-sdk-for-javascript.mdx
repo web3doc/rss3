@@ -181,7 +181,7 @@ const { details } = await rss3.profile.get('0xC8b960D09C0078c18Dcbe7eB9AB9d816Bc
 
 您还可以帮助用户将帐户添加到 RSS3 网络。
 
-支持的帐户列表可在 [API#Supported account](/guide/api.html#supported-account)
+支持的帐户列表可在 [API#Supported account](/docs/api#支持的账号)
 
 账户可以分为两种类型：一种是去中心化的，比如区块链，另一种是属于中心化平台的，包括 Twitter、Misskey 和 Jike。
 
@@ -219,7 +219,7 @@ await rss3.files.sync();
 
 接下来让我们在一个集中的平台上添加另一个帐户，例如 Twitter。
 
-1. 将我们的主要地址或指向我们主要地址的名称（参见 [API#Supported name service](/guide/api.html#supported-name-service)）添加到 Twitter bio、name 或 url
+1. 将我们的主要地址或指向我们主要地址的名称（参见 [API#Supported name service](/docs/api#支持的名称服务)）添加到 Twitter bio、name 或 url
 
 2. 声明此账户； 3.添加账号到rss3文件； 4.将修改后的文件同步到RSS3网络（同上）
 
@@ -275,7 +275,7 @@ const page2 = await rss3.profile.getList(list.slice(10, 20));
 
 资产分为自动索引资产和自我声明资产（WIP），这里以汽车资产为例。
 
-支持的自动资产列表可在 [API#Supported auto assets](/guide/api.html#supported-auto-assets) 获得
+支持的自动资产列表可在 [API#Supported auto assets](/docs/api#支持的自动资产) 获得
 
 我们可以像这样得到一个角色的资产列表
 
@@ -366,7 +366,7 @@ const page1 = await rss3.items.getList({
 });
 ```
 
-[API#Supported auto items](/guide/api.html#supported-auto-items) 中提供了字段的可能值。
+[API#Supported auto items](/docs/api#支持的自动项目) 中提供了字段的可能值。
 
 其中一些项目是对资产的更改，例如获取 NFT，我们可能还需要它们的详细信息来渲染资产的图像和名称，这再次使用上面提到的 `rss3.assets.getDetails` 方法。
 
