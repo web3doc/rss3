@@ -1,0 +1,128 @@
+---
+sidebar_position: 4
+---
+
+# 网络
+
+# API
+
+## 介绍
+
+[源码](https://github.com/NaturalSelectionLabs/RSS3-Pre-Node)
+
+在积极努力实现我们的最终目标的同时，一个完全去中心化的节点，目前有一个临时集中的版本，您可以使用 <https://prenode.rss3.dev> 作为节点入口点。
+
+## 支持的名称服务
+
+同 [Web3 名称服务](https://github.com/NaturalSelectionLabs/Web3-Name-Service)
+
+- ENS：*.eth
+- DAS：*.bit
+- RNS：*.rss3
+
+## 支持的账号
+
+- EVM+
+- Twitter
+- Misskey
+- Jike
+
+## 支持的汽车资产
+
+- Gitcoin.Donation
+- xDai.POAP
+- BSC.NFT
+- Ethereum.NFT
+- Polygon.NFT
+- Mirror.XYZ (to be removed)
+
+## 支持的自动项目
+
+- Gitcoin.Donation
+- xDai.POAP
+- BSC.NFT
+- Ethereum.NFT
+- Polygon.NFT
+- Mirror.XYZ
+- Twitter
+- Misskey
+- Jike
+
+## API
+
+- GET `/:fid` - 获取文件
+
+例子：
+
+获取`0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944`索引文件
+
+<https://prenode.rss3.dev/0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944>
+
+- PUT `/` - 更改文件
+
+机身参数
+
+|参数 |是否可选 |说明 |
+| -------- | -------- | ------------------------------------ |
+|files |否 |文件内容数组 |
+
+- 获取`/资产/详细信息`
+
+获取资产的详细信息
+
+查询参数
+
+|参数 |是否可选 |说明 |
+| -------- | -------- | ------------------------------------ |
+|assets |否 |所需资产的 ID，以逗号分隔 |
+|full|是 |是否返回详细信息 |
+
+例子：
+
+获得两项资产的细节`EVM + -0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944-Ethereum.NFT-0xacbe98efe2d4d103e221e04c76d7c55db15c8e89.5`和`EVM + -0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944-Polygon.NFT-0x548cee4ee43ecd2fb4716c490d3da315069d8114.3`
+
+<https://prenode.rss3.dev/assets/details?assets=EVM%2B-0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944-Ethereum.NFT-0xacbe98efe2d4d103e221e04c76d7c55db15c8e89.5,EVM%2B-0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944-Polygon.NFT-0x548cee4ee43ecd2fb4716c490d3da315069d8114.3&full=1>
+
+- 获取`/items/list`
+
+获取聚合的自动和自定义项目，按时间排序
+
+查询参数
+
+|参数 |是否可选 |说明 |
+| -------- | -------- | ------------------------------------ |
+|limit |是 |列表数量限制 |
+|tsp |是 | RFC 3339 格式的时间，返回此时间之前的项目 |
+|persona |否 | |
+|linkID |是 | |
+|fieldLike |是 | target.field 的过滤器，用逗号分隔 |
+
+例子：
+
+获取`0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944`的聚合项
+
+<https://prenode.rss3.dev/items/list?limit=5&persona=0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944>
+
+获取跟随`0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944`的人物角色的聚合项
+
+<https://prenode.rss3.dev/items/list?limit=5&persona=0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944&linkID=following>
+
+获取`0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944`的NFT和Gitcoin相关聚合项
+
+<https://prenode.rss3.dev/items/list?limit=5&persona=0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944&fieldLike=NFT,Gitcoin>
+
+- 获取`/profile/list`
+
+获取给定角色列表的个人资料
+
+查询参数
+
+|参数 |是否可选 |说明 |
+| -------- | -------- | ------------------------------------ |
+|personas |否 |文件内容数组 |
+
+例子：
+
+获取“0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944”和“0xee8fEeb6D0c2fC02Ef41879514A75d0E791b5061”的配置文件
+
+<https://prenode.rss3.dev/profile/list?personas=0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944,0xee8fEeb6D0c2fC02Ef41879514A75d0E791b5061>

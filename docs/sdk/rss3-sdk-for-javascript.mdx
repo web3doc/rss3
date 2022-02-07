@@ -1,0 +1,1338 @@
+---
+sidebar_position: 2
+---
+ 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# 适用于 JavaScript 的 RSS3 SDK
+
+## 介绍
+
+[源码](https://github.com/NaturalSelectionLabs/RSS3-SDK-for-JavaScript)
+
+这是一个用于 JavaScript 的 RSS3 SDK，它与 RSS3 协议保持同步，并提供对主要模块的轻松访问以及自动签名处理。
+
+SDK 兼容 Node.js 环境和主流现代浏览器，对 TypeScript 有很好的支持。
+
+[![测试](https://github.com/NaturalSelectionLabs/RSS3-SDK-for-JavaScript/actions/workflows/test.yml/badge.svg)](https://github.com/NaturalSelectionLabs/RSS3-SDK-for-JavaScript/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/NaturalSelectionLabs/RSS3-SDK-for-JavaScript/branch/develop/graph/badge.svg?token=361AKFS8AH)](https://codecov.io/gh/NaturalSelectionLabs/RSS3-SDK-for-JavaScript)
+
+## 安装
+
+&nbsp;
+
+通过 yarn 或 npm 安装 `rss3`。
+
+<Tabs>
+  <TabItem value="yarn" active>
+
+```bash
+yarn add rss3
+```
+
+  </TabItem>
+
+  <TabItem value="npm">
+
+```bash
+npm install rss3 --save
+```
+
+  </TabItem>
+</Tabs>
+
+然后在我们的项目中引用`rss3`。
+
+```js
+import RSS3, { utils as RSS3Utils } from 'rss3';
+```
+
+## 入门
+
+使用 sdk 的第一步是初始化它。
+
+### 初始化
+
+初始化 SDK 有 4 种方式：
+
+- 创建一个临时帐户（推荐在不需要修改文件的地方）
+- 使用外部签名方法初始化（推荐在可能需要修改文件的地方）
+- 使用助记符初始化
+- 用私钥初始化
+```ts
+interface IOptions {
+    endpoint: string; // RSS3 网络端点
+    agentSign?: boolean;
+    agentStorage?: {
+        set: (key: string, value: string) => Promise<void>;
+        get: (key: string) => Promise<string>;
+    };
+}
+
+export interface IOptionsMnemonic extends IOptions {
+    mnemonic?: string;
+    mnemonicPath?: string;
+}
+
+export interface IOptionsPrivateKey extends IOptions {
+    privateKey: string;
+}
+
+export interface IOptionsSign extends IOptions {
+    address: string;
+    sign: (data: string) => Promise<string>;
+}
+
+new RSS3(options: IOptionsMnemonic | IOptionsPrivateKey | IOptionsSign);
+```
+
+**临时账户**
+
+如果应用程序只需要从 RSS3 网络获取信息（例如活动提要或资产）而不提交更改，初始化它的最简单方法是创建一个临时帐户（第一种方式），即只需传递 `endpoint` 参数。
+
+```ts
+const rss3 = new RSS3({
+    endpoint: 'https://prenode.rss3.dev',
+});
+```
+**MetaMask 或其他与以太坊兼容的钱包**
+
+如果应用程序想要帮助用户对文件进行更改（例如发布新项目或添加新链接），那么出于安全原因，除非有特定需要，否则我们应该使用热或提供的外部签名方法进行初始化 冷钱包（第二种方式）。
+
+<Tabs>
+<TabItem value="ethers" active>
+
+```ts
+import RSS3 from 'rss3';
+import { ethers } from 'ethers';
+
+const provider = new ethers.providers.Web3Provider(window.ethereum);
+const signer = provider.getSigner();
+
+const rss3 = new RSS3({
+    endpoint: 'https://prenode.rss3.dev',
+    address: await signer.getAddress(),
+    sign: async (data) => await signer.signMessage(data),
+});
+```
+
+</TabItem>
+
+<TabItem value="web3.js">
+
+```ts
+import RSS3 from 'rss3';
+import Web3 from 'web3';
+
+const web3 = new Web3(window.ethereum);
+const address = (await web3.eth.getAccounts())[0];
+const rss3 = new RSS3({
+    endpoint: 'https://prenode.rss3.dev',
+    address,
+    sign: async (data) => await web3.eth.personal.sign(data, address),
+});
+```
+
+</TabItem>
+</Tabs>
+
+而 `agentSign` 是一种代理签名 - 更多信息请参考 [RSS3 协议](https://github.com/NaturalSelectionLabs/RSS3) 中的 `agent_id` 和 `agent_signature` 字段。 用户使用外部签名初始化 SDK 后，会生成代理签名以对后续更改进行签名。 代理信息通过`agentStorage`参数存储在合适且安全的地方，默认位置是cookies。
+
+我们也可以使用助记词或私钥初始化 SDK，但不强烈推荐。
+
+**助记符**
+```ts
+const rss3 = new RSS3({
+    endpoint: 'https://prenode.rss3.dev',
+    mnemonic: 'xxx',
+    mnemonicPath: 'xxx',
+});
+```
+
+**私钥**
+
+```ts
+const rss3 = new RSS3({
+    endpoint: 'https://prenode.rss3.dev',
+    privateKey: '0xxxx',
+});
+```
+
+下一节通过几个使用场景来介绍SDK的使用。
+
+### 获取配置文件详细信息
+
+虽然支持外部 DID 项目（例如 ENS、next.id 和 self.id），但您还可以从 RSS3 网络获取个人资料详细信息，包括头像和昵称。
+
+使用 `rss3.profile.get` 方法获取指定角色的个人资料。
+
+如果未指定角色地址，则将返回当前初始化角色的配置文件。
+
+让我们获取角色“0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944”的帐户详细信息
+
+```ts
+const { details } = await rss3.profile.get('0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944');
+```
+
+### Adding Persona's Associated Accounts
+
+### 添加 Persona 的关联帐户
+
+您还可以帮助用户将帐户添加到 RSS3 网络。
+
+支持的帐户列表可在 [API#Supported account](/guide/api.html#supported-account)
+
+账户可以分为两种类型：一种是去中心化的，比如区块链，另一种是属于中心化平台的，包括 Twitter、Misskey 和 Jike。
+
+下面分别给出这两种类型的示例。
+
+让我们从添加 MetaMask 的当前帐户开始。 请注意，此地址不能与 rss3 实例的主地址重复。
+
+1. 声明这个账号
+
+```ts
+const account = {
+    tags: ['test account'], // Optional
+    id: RSS3Utils.id.getAccount('EVM+', await signer.getAddress()), // 'EVM+-0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944'
+};
+```
+
+2. 计算签名消息，并使用 MetaMask 对该消息进行签名，以证明该帐户属于我们。
+
+```ts
+const signMessage = await rss3.profile.accounts.getSigMessage(account);
+account.signature = await signer.signMessage(signMessage);
+```
+
+3.添加账号到rss3文件
+
+```ts
+await rss3.profile.accounts.post(account);
+```
+
+4.将修改后的文件同步到RSS3网络
+
+```ts
+await rss3.files.sync();
+```
+
+接下来让我们在一个集中的平台上添加另一个帐户，例如 Twitter。
+
+1. 将我们的主要地址或指向我们主要地址的名称（参见 [API#Supported name service](/guide/api.html#supported-name-service)）添加到 Twitter bio、name 或 url
+
+2. 声明此账户； 3.添加账号到rss3文件； 4.将修改后的文件同步到RSS3网络（同上）
+
+```ts
+const account = {
+    id: RSS3Utils.id.getAccount('Twitter', 'DIYgod'), // 'Twitter-DIYgod'
+};
+await rss3.profile.accounts.post(account);
+await rss3.files.sync();
+```
+
+### Getting the List of Persona's Links
+
+### 获取 Persona 的链接列表
+
+RSS3 适用于所有社交图谱项目，但是，如果您想利用 RSS3 网络上的现有链接，以下是如何使其工作。
+
+协议定义了每个角色可以有多种类型的链接，我们将以 `following` 为例。 这里我们使用 `following` 作为 id。 我们还可以定义自己的链接 ID。
+
+接下来我们尝试获取角色的关注列表，即id为`following`的链接列表。
+
+```ts
+const list = await rss3.links.getList('0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944', 'following');
+```
+
+现在我们有一系列地址，但是很难逐个获取他们的个人资料以呈现包含头像和名称的漂亮列表，因此 SDK 提供了一种批量获取个人资料的方法。
+
+```ts
+const profiles = await rss3.profile.getList(list);
+```
+
+这为我们提供了一组配置文件和地址，我们可以使用它们来呈现一个漂亮的列表。
+
+这同样适用于关注者列表，除了链接被反向链接替换。
+
+```ts
+const list = await rss3.backlinks.getList('0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944', 'following');
+```
+
+请注意，关注者列表很可能很大，在这种情况下，我们需要分段加载它以避免性能问题。
+
+```ts
+const page1 = await rss3.profile.getList(list.slice(0, 10));
+```
+
+当用户滚动到下一部分时
+
+```ts
+const page2 = await rss3.profile.getList(list.slice(10, 20));
+```
+
+### 获取资产列表
+
+资产分为自动索引资产和自我声明资产（WIP），这里以汽车资产为例。
+
+支持的自动资产列表可在 [API#Supported auto assets](/guide/api.html#supported-auto-assets) 获得
+
+我们可以像这样得到一个角色的资产列表
+
+```ts
+const assets = (await rss3.assets.auto.getList('0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944')).filter((asset) => !asset.includes('Mirror'));
+```
+
+然后我们会发现我们只获得了一组资产 ID，没有详细信息，例如图像或名称。 这是因为某些资产的详细信息可能需要更长的时间才能进行索引。 所以更好的做法是先渲染列表，给它们一个加载状态，然后请求细节，然后渲染图像和其他信息。
+
+```ts
+const details = await rss3.assets.getDetails({
+    assets,
+    full: true,
+});
+```
+
+请注意，由于从第三方来源获取详细信息可能会很慢，因此详细信息的返回值可能不会返回请求的资产的所有详细信息，也不会按顺序返回。 因此，如果有任何丢失的资产，请在一段时间后重试获取丢失的资产。
+
+我们可以编写一个循环来请求详细信息。
+
+```ts
+let details = [];
+for (let i = 0; i < 10; i++) {
+    details = details.concat(await rss3.assets.getDetails({
+        assets: assetsNoDeails,
+        full: true,
+    }));
+    myRender(details);
+    const assetsNoDeails = assets.filter((asset) => !details.find((detail) => detail.id === asset));
+    if (!assetsNoDeails.length) {
+        break;
+    } else {
+        await new Promise((r) => {setTimeout(r, 3000)})
+    }
+}
+```
+
+### 获取活动源
+
+活动提要中的项目分为由节点索引的自动项目和由角色提交的带有签名的项目。 因此，项目存储在两种类型的文件中，并且由于自动索引的项目可能不按时间顺序排序，因此客户端很难准确计算出按时间顺序排列的列表。 因此 Node 和 SDK 提供了一种更方便的按时间顺序获取项目的方法。
+
+如果我们想获取特定角色 `0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944` 的最后 10 个活动项：`0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944`:
+
+```ts
+const page1 = await rss3.items.getList({
+    limit: 10,
+    persona: '0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944',  
+});
+```
+
+如果我们想利用 RSS3 网络中的现有链接（例如以下链接）来获取来自其他角色的项目列表，然后是“0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944”：
+
+```ts
+const page1 = await rss3.items.getList({
+    limit: 10,
+    persona: '0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944',
+    linkID: 'following',
+});
+```
+
+如果您想获得对资产的评论
+
+```ts
+const page1 = await rss3.items.getList({
+    limit: 10,
+    linkTarget: 'Ethereum.NFT-0xacbe98efe2d4d103e221e04c76d7c55db15c8e89.5',
+    linkID: 'comment',
+});
+```
+
+如果我们使用外部社交图（例如 CyberConnect 或 Mem）并且已经拥有以下地址列表：
+
+```ts
+const page1 = await rss3.items.getList({
+    limit: 10,
+    personaList: list,
+});
+```
+
+如果我们只想获取特定类型的活动，那么：
+
+```ts
+const page1 = await rss3.items.getList({
+    limit: 10,
+    persona: '0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944',
+    linkID: 'following',
+    fieldLike: 'NFT',
+});
+```
+
+[API#Supported auto items](/guide/api.html#supported-auto-items) 中提供了字段的可能值。
+
+其中一些项目是对资产的更改，例如获取 NFT，我们可能还需要它们的详细信息来渲染资产的图像和名称，这再次使用上面提到的 `rss3.assets.getDetails` 方法。
+
+```ts
+const assets = page1.filter((item) => item?.target?.field?.startsWith('assets-')).map((item) => item.target.field.replace(/^assets-/, ''));
+
+// Same as above
+let details = [];
+for (let i = 0; i < 10; i++) {
+    details = details.concat(await rss3.assets.getDetails({
+        assets: assetsNoDeails,
+        full: true,
+    }));
+    myRender(details);
+    const assetsNoDeails = assets.filter((asset) => !details.find((detail) => detail.id === asset));
+    if (!assetsNoDeails.length) {
+        break;
+    } else {
+        await new Promise((r) => {setTimeout(r, 3000)})
+    }
+}
+```
+
+此外，如果我们想从 RSS3 网络获取配置文件，例如 昵称和头像，来自项目列表的角色列表，我们可以：
+
+```ts
+const profileSet = page1.filter((item) => item?.target?.field?.startsWith('assets-')).map((item) => utils.id.parse(item.id).persona);
+let profiles = await rss3.profile.getList(profileSet);
+```
+
+当用户滚动到下一个部分时，我们使用 page1 上最后一项的时间作为 tsp 参数来获取接下来的 10 项。
+
+```ts
+const page2 = await rss3.items.getList({
+    limit: 10,
+    persona: '0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944',
+    linkID: 'following',
+    fieldLike: 'NFT',
+    tsp: page1[page1.length - 1].date_created,
+});
+```
+
+### 发布自定义项目
+
+让我们从一个纯文本项目开始
+
+```ts
+await rss3.items.custom.post({
+    summary: 'I love RSS3',
+});
+```
+
+有时我们还想在物品上附加图片或视频，我们需要将资源上传到外部存储以获取地址，然后将其放入内容中。
+
+```ts
+await rss3.items.custom.post({
+    summary: 'I love RSS3',
+    contents: [{
+        type: 'image/jpeg',
+        address: 'https://picsum.photos/200/300',
+    }, {
+        type: 'video/mp4',
+        address: 'https://file-examples-com.github.io/uploads/2017/04/file_example_MP4_480_1_5MG.mp4',
+    }],
+});
+```
+
+有时我们想要发布与另一个项目相关的项目，例如评论或喜欢一个项目。
+
+```ts
+// comment
+await rss3.items.custom.post({
+    summary: 'I love you',
+    link: {
+        id: 'comment',
+        target: '0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944-item-auto-1',
+    };
+});
+
+// like
+const likeItem = await rss3.items.custom.post({
+    link: {
+        id: 'like',
+        target: '0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944-item-auto-1',
+    };
+});
+```
+
+或资产
+
+```ts
+// comment
+await rss3.items.custom.post({
+    summary: 'I love it',
+    link: {
+        id: 'comment',
+        target: 'Ethereum.NFT-0xacbe98efe2d4d103e221e04c76d7c55db15c8e89.5',
+    };
+});
+```
+
+那么如果我们要修改item，比如不喜欢或者修改summary，只要告诉sdk你要修改item的id和修改item的内容即可。
+
+```ts
+await rss3.items.custom.patch({
+    id: likeItem.id,
+    summary: 'New summary',
+});
+```
+
+最后不要忘记同步您的文件。
+
+```ts
+await rss3.files.sync();
+```
+
+## SDK API
+
+在此处查看我们的完整 SDK API
+
+### 文件 Files
+
+**files.sync()**
+
+请注意，只有在 `files.sync()` 成功执行后，更改才会同步到节点
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+files.sync(): string[]
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const changedFiles = rss3.files.sync();
+```
+
+</TabItem>
+</Tabs>
+
+**files.get()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+files.get(fileID: string): Promise<RSS3Content>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const file = await rss3.files.get(rss3.account.address);
+```
+
+</TabItem>
+</Tabs>
+
+### 账户 Account
+
+**account.mnemonic**
+
+如果使用 privateKey 或自定义签名函数初始化，则此值未定义
+
+```ts
+account.mnemonic: string | undefined
+```
+
+**account.privateKey**
+
+如果使用自定义符号函数初始化，则此值未定义
+
+```ts
+account.privateKey: string | undefined
+```
+
+**account.address**
+
+```ts
+account.address: string
+```
+
+### 个人资料 Profile
+
+**profile.get()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+profile.get(personaID: string = account.address): Promise<RSS3Profile>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const file = await rss3.files.get(rss3.account.address);
+```
+
+</TabItem>
+</Tabs>
+
+**profile.patch()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+profile.patch(profile: RSS3Profile): Promise<RSS3Profile>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const newProfile = await rss3.profile.patch({
+    name: 'RSS3',
+    avatar: 'https://cloudflare-ipfs.com/ipfs/QmZWWSspbyFtWpLZtoAK35AjEYK75woNawqLgKC4DRpqxu',
+    bio: 'RSS3 is an open protocol designed for content and social networks in the Web 3.0 era.',
+});
+```
+
+</TabItem>
+</Tabs>
+
+**profile.getList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+profile.get(personas: string[]): Promise<(RSS3Profile & { persona: string })[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const profiles = rss3.profile.getList([
+    '0xC8b960D09C0078c18Dcbe7eB9AB9d816BcCa8944',
+    '0xee8fEeb6D0c2fC02Ef41879514A75d0E791b5061',
+]);
+```
+
+</TabItem>
+</Tabs>
+
+### 个人账户 Profile.accounts
+
+**profile.accounts.getSigMessage()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+profile.accounts.getSigMessage(account: RSS3Account): Promise<string>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const sigMessage = await rss3.profile.accounts.getSigMessage({
+    id: RSS3Utils.id.getAccount('EVM+', '0x1234567890123456789012345678901234567890'),
+    tags: ['test'],
+});
+```
+
+</TabItem>
+</Tabs>
+
+**profile.accounts.getList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+profile.accounts.getList(persona?: string): Promise<RSS3Account[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const list = await rss3.profile.accounts.getList('0x1234567890123456789012345678901234567890');
+```
+
+</TabItem>
+</Tabs>
+
+**profile.accounts.post()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+profile.accounts.post(account: RSS3Account): Promise<RSS3Account>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const account = {
+    id: RSS3Utils.id.getAccount('EVM+', '0x1234567890123456789012345678901234567890'),
+    tags: ['test'],
+};
+const signature = mySignFun(await rss3.profile.accounts.getSigMessage(account));
+account.signature = signature;
+const account = await rss3.profile.accounts.post(account);
+```
+
+</TabItem>
+</Tabs>
+
+**profile.accounts.delete()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+profile.accounts.delete(id: string): Promise<string>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const account = await rss3.profile.accounts.delete(
+    RSS3Utils.id.getAccount('EVM+', '0x1234567890123456789012345678901234567890'),
+);
+```
+
+</TabItem>
+</Tabs>
+
+### Items
+
+**items.getList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+items.getList(options: {
+    limit: number;
+    tsp: string;
+    persona: string;
+    linkID?: string;
+    fieldLike?: string;
+}): Promise<(RSS3CustomItem | RSS3AutoItem)[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const followingTimeline = await rss3.items.getList({
+    persona: '0x1234567890123456789012345678901234567890',
+    linkID: 'following',
+    limit: 10,
+    tsp: '2021-12-06T13:59:57.030Z',
+});
+const personaTimeline = await rss3.items.getList({
+    persona: '0x1234567890123456789012345678901234567890',
+    limit: 10,
+    tsp: '2021-12-06T13:59:57.030Z',
+});
+```
+
+</TabItem>
+</Tabs>
+
+### Items.auto
+
+**items.auto.getListFile()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+items.auto.getListFile(persona: string, index?: number): Promise<RSS3AutoItemsList | null>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const items = await rss3.items.auto.getListFile(rss3.account.address, -1);
+```
+
+</TabItem>
+</Tabs>
+
+**items.auto.getList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+items.auto.getList(persona: string, breakpoint?: (file: RSS3AutoItemsList) => boolean): Promise<RSS3AutoItem[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const autoItems = await rss3.auto.items.getList('0x1234567890123456789012345678901234567890');
+```
+
+</TabItem>
+</Tabs>
+
+**items.auto.backlinks.getListFile()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+items.auto.getListFile(persona: string, index?: number): Promise<RSS3AutoItemsList | null>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const backlinks = await rss3.items.auto.getListFile('0x1234567890123456789012345678901234567890', -1);
+```
+
+</TabItem>
+</Tabs>
+
+**items.auto.backlinks.getList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+items.auto.backlinks.getList(persona: string, breakpoint?: ((file: RSS3AutoItemsList) => boolean) | undefined): Promise<RSS3AutoItem[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const backlinks = await rss3.items.auto.backlinks.getList('0x1234567890123456789012345678901234567890');
+```
+
+</TabItem>
+</Tabs>
+
+### Items.custom
+
+**items.custom.getListFile()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+items.custom.getListFile(persona: string, index?: number): Promise<RSS3CustomItemsList | null>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const items = await rss3.items.custom.getListFile(rss3.account.address, -1);
+```
+
+</TabItem>
+</Tabs>
+
+**items.custom.getList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+items.custom.getList(persona: string, breakpoint?: (file: RSS3AutoItemsList) => boolean): Promise<RSS3AutoItem[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const customItems = await rss3.items.custom.getList('0x1234567890123456789012345678901234567890');
+```
+
+</TabItem>
+</Tabs>
+
+**item.custom.post()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+item.custom.post(itemIn: Omit<RSS3CustomItem, 'id' | 'date_created' | 'date_updated'>): Promise<RSS3CustomItem>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const item = await rss3.item.custom.post({
+    title: 'Hello RSS3',
+    summary: 'RSS3 is an open protocol designed for content and social networks in the Web 3.0 era.',
+});
+```
+
+</TabItem>
+</Tabs>
+
+**item.custom.patch**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+item.custom.patch(item: Partial<RSS3CustomItem> & {
+    id: RSS3CustomItemID;
+}): Promise<RSS3CustomItem | null>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const newItem = await rss3.item.custom.patch({
+    id: '0x1234567890123456789012345678901234567890-item-custom-0',
+    title: 'Hi RSS3',
+});
+```
+
+</TabItem>
+</Tabs>
+
+**items.custom.backlinks.getListFile()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+items.custom.getListFile(persona: string, index?: number): Promise<RSS3CustomItemsList | null>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const backlinks = await rss3.items.custom.getListFile('0x1234567890123456789012345678901234567890', -1);
+```
+
+</TabItem>
+</Tabs>
+
+**items.custom.backlinks.getList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+items.custom.backlinks.getList(persona: string, breakpoint?: ((file: RSS3CustomItemsList) => boolean) | undefined): Promise<RSS3CustomItem[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const backlinks = await rss3.items.custom.backlinks.getList('0x1234567890123456789012345678901234567890');
+```
+
+</TabItem>
+</Tabs>
+
+### Links
+
+**links.getListFile()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+links.getListFile(persona: string, id: string, index?: number): Promise<RSS3LinksList | null>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const followers = await rss3.links.getListFile(rss3.account.address, 'following', -1);
+```
+
+</TabItem>
+</Tabs>
+
+**links.getList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+links.getList(persona: string, id: string, breakpoint?: ((file: RSS3LinksList) => boolean) | undefined): Promise<string[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const following = await rss3.links.getList(rss3.account.address, 'following');
+```
+
+</TabItem>
+</Tabs>
+
+**links.postList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+links.postList(links: {
+    tags?: string[];
+    id: string;
+    list?: RSS3ID[];
+}): Promise<{
+    tags?: string[];
+    id: string;
+    list?: RSS3ID[];
+}>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const following = await rss3.links.postList({
+    id: 'following',
+    list: ['0xd0B85A7bB6B602f63B020256654cBE73A753DFC4'],
+});
+```
+
+</TabItem>
+</Tabs>
+
+**links.deleteList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+links.deleteList(id: string): Promise<{
+    tags?: string[] | undefined;
+    id: string;
+    list?: string | undefined;
+} | undefined>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const following = await rss3.links.deleteList('following');
+```
+
+</TabItem>
+</Tabs>
+
+**links.patchListTags()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+links.patchListTags(id: string, tags: string[]): Promise<{
+    tags?: string[] | undefined;
+    id: string;
+    list?: string | undefined;
+}>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const following = await rss3.links.patchListTags('following', ['test']);
+```
+
+</TabItem>
+</Tabs>
+
+**links.post()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+links.post(id: string, personaID: string): Promise<RSS3LinksList | undefined>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const following = await rss3.links.post('following', '0xd0B85A7bB6B602f63B020256654cBE73A753DFC4');
+```
+
+</TabItem>
+</Tabs>
+
+**links.delete()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+links.delete(id: string, personaID: string): Promise<string[] | null>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const following = await rss3.links.delete('following', '0xd0B85A7bB6B602f63B020256654cBE73A753DFC4');
+```
+
+</TabItem>
+</Tabs>
+
+### Backlinks
+
+**backlinks.getListFile()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+backlinks.getListFile(persona: string, id: string, index?: number): Promise<RSS3BacklinksList | null>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const followers = await rss3.backlinks.getListFile(rss3.account.address, 'following', -1);
+```
+
+</TabItem>
+</Tabs>
+
+**backlinks.getList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+backlinks.getList(persona: string, id: string, breakpoint?: ((file: RSS3BacklinksList) => boolean) | undefined): Promise<string[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const followers = await rss3.backlinks.getList(rss3.account.address, 'following');
+```
+
+</TabItem>
+</Tabs>
+
+### Assets
+
+**assets.getDetails()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+assets.getDetails(options: {
+    assets: string[];
+    full?: boolean;
+}): Promise<AnyObject[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const details = await rss3.assets.getDetails({
+    assets: ['xxx', 'xxx'],
+    full: true,
+});
+```
+
+</TabItem>
+</Tabs>
+
+### Assets.auto
+
+**assets.auto.getListFile()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+assets.auto.getListFile(persona: string, index?: number): Promise<RSS3AutoAssetsList | null>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const assets = await rss3.assets.auto.getListFile(rss3.account.address, -1);
+```
+
+</TabItem>
+</Tabs>
+
+**assets.auto.getList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+assets.auto.getList(persona: string, breakpoint?: (file: RSS3AutoAssetsList) => boolean): Promise<RSS3AutoAsset[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const autoAssets = await rss3.auto.assets.getList('0x1234567890123456789012345678901234567890');
+```
+
+</TabItem>
+</Tabs>
+
+### Assets.custom
+
+**assets.custom.getListFile()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+assets.custom.getListFile(persona: string, index?: number): Promise<RSS3AutoAssetsList | null>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const assets = await rss3.assets.custom.getListFile(rss3.account.address, -1);
+```
+
+</TabItem>
+</Tabs>
+
+**assets.custom.getList()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+assets.custom.getList(persona: string, breakpoint?: (file: RSS3CustomAssetsList) => boolean): Promise<RSS3CustomAsset[]>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const customAssets = await rss3.custom.assets.getList('0x1234567890123456789012345678901234567890');
+```
+
+</TabItem>
+</Tabs>
+
+**asset.custom.post()**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+asset.custom.post(asset: RSS3CustomAsset): Promise<RSS3CustomAsset>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const asset = await rss3.custom.asset.post('custom-gk-q-10035911');
+```
+
+</TabItem>
+</Tabs>
+
+**asset.custom.delete**
+
+<Tabs>
+<TabItem value="types" active>
+
+```ts
+asset.custom.delete(asset: RSS3CustomAsset): Promise<RSS3CustomAsset[] | undefined>
+```
+
+</TabItem>
+
+<TabItem value="example">
+
+```ts
+const otherAsset = await rss3.asset.custom.delete('custom-gk-q-10035911');
+```
+
+</TabItem>
+</Tabs>
+
+## Development
+
+```bash
+yarn
+yarn dev
+```
+
+Open http://localhost:8080/demo/
+
+Test
+
+```bash
+yarn test
+```
